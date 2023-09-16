@@ -11,7 +11,40 @@ const y = canvas.height / 2
 
 // const player = new Player(x, y, 10, 'white')
 const frontEndPlayers ={}
-const frontEndProjectiles =[]
+const frontEndProjectiles = {}
+
+socket.on('connect', () => {
+  socket.emit('initCanvas', {
+    width: canvas.width,
+    height: canvas.height,
+    devicePixelRatio
+  })
+})
+
+socket.on('updateProjectiles', (backEndProjectiles) => {
+  for (const id in backEndProjectiles) {
+    const backEndProjectile = backEndProjectiles[id]
+
+    if (!frontEndProjectiles[id]) {
+      frontEndProjectiles[id] = new Projectile({
+        x: backEndProjectile.x,
+        y: backEndProjectile.y,
+        radius: 5,
+        color: frontEndPlayers[backEndProjectile.playerId]?.color,
+        velocity: backEndProjectile.velocity
+      })
+    } else {
+      frontEndProjectiles[id].x += backEndProjectiles[id].velocity.x
+      frontEndProjectiles[id].y += backEndProjectiles[id].velocity.y
+    }
+  }
+
+  for (const frontEndProjectileId in frontEndProjectiles) {
+    if (!backEndProjectiles[frontEndProjectileId]) {
+      delete frontEndProjectiles[frontEndProjectileId]
+    }
+  }
+})
 socket.on("updatePlayers",(backEndPlayers)=>{
     for (const id in backEndPlayers){
       const backEndPlayer = backEndPlayers[id]
@@ -56,11 +89,8 @@ socket.on("updatePlayers",(backEndPlayers)=>{
     }
 })
 
-
-
-
 let animationId
-const SPEED = 5;
+const SPEED = 10;
 const playerInputs =[]
 let sequenceNumber =0
 function animate() {
@@ -71,7 +101,14 @@ function animate() {
     const frontEndPlayer = frontEndPlayers[id]
     frontEndPlayer.draw()
   }
-  
+ for (const id in frontEndProjectiles) {
+    const frontEndProjectile = frontEndProjectiles[id]
+    frontEndProjectile.draw()
+  }
+  // for(let i=frontEndProjectiles.length-1;i>=0;i--){
+  //   const frontEndProjectile = frontEndProjectiles[i];
+  //   frontEndProjectile.update()
+  // }
 
 }
 

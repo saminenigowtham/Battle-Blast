@@ -1,5 +1,7 @@
 "use strict";
 
+function _readOnlyError(name) { throw new Error("\"" + name + "\" is read-only"); }
+
 var _require = require('console'),
     log = _require.log;
 
@@ -27,6 +29,8 @@ app.get('/', function (req, res) {
   res.sendFile(__dirname + '/index.html');
 });
 var backEndPlayers = {};
+var backEndProjectiles = {};
+var ProjectileId = 0;
 var SPEED = 5;
 io.on('connection', function (socket) {
   console.log('a user connected');
@@ -37,14 +41,31 @@ io.on('connection', function (socket) {
     sequenceNumber: 0
   };
   io.emit('updatePlayers', backEndPlayers);
+  server.on('shoot', function (_ref) {
+    var x = _ref.x,
+        y = _ref.y,
+        angle = _ref.angle;
+    _readOnlyError("ProjectileId"), ProjectileId++;
+    var velocity = {
+      x: Math.cos(angle) * 5,
+      y: Math.sin(angle) * 5
+    };
+    backEndProjectiles[ProjectileId] = {
+      x: x,
+      y: y,
+      velocity: velocity,
+      playerId: socket.id
+    };
+    console.log(backEndProjectiles);
+  });
   socket.on('disconnect', function (reason) {
     console.log(reason);
     delete backEndPlayers[socket.id];
     io.emit('updatePlayers', backEndPlayers);
   });
-  socket.on('keydown', function (_ref) {
-    var keycode = _ref.keycode,
-        sequenceNumber = _ref.sequenceNumber;
+  socket.on('keydown', function (_ref2) {
+    var keycode = _ref2.keycode,
+        sequenceNumber = _ref2.sequenceNumber;
     var backEndPlayer = backEndPlayers[socket.id];
     backEndPlayers[socket.id].sequenceNumber = sequenceNumber;
 
@@ -68,6 +89,12 @@ io.on('connection', function (socket) {
   }); // console.log(backEndPlayers);
 });
 setInterval(function () {
+  for (var id in backEndProjectiles) {
+    backEndProjectiles[id].x += backEndProjectiles[id].velocity.x;
+    backEndProjectiles[id].y += backEndProjectiles[id].velocity.y;
+  }
+
+  io.emit('updateProjectiles', backEndProjectiles);
   io.emit('updatePlayers', backEndPlayers);
 }, 15);
 server.listen(port, function () {
