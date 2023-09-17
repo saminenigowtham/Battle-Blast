@@ -13,13 +13,6 @@ const y = canvas.height / 2
 const frontEndPlayers ={}
 const frontEndProjectiles = {}
 
-socket.on('connect', () => {
-  socket.emit('initCanvas', {
-    width: canvas.width,
-    height: canvas.height,
-    devicePixelRatio
-  })
-})
 
 socket.on('updateProjectiles', (backEndProjectiles) => {
   for (const id in backEndProjectiles) {
@@ -55,21 +48,52 @@ socket.on("updatePlayers",(backEndPlayers)=>{
           radius:10,
           color:backEndPlayer.color
         })
-      } else{
-        if(id === socket.id){
-        frontEndPlayers[id].x=backEndPlayer.x,
-        frontEndPlayers[id].y=backEndPlayer.y
+         document.querySelector(
+        '#playerLabels'
+      ).innerHTML += `<div data-id="${id}" data-score="${backEndPlayer.score}">${backEndPlayer.username}: ${backEndPlayer.score}</div>`
+    } else {
+      document.querySelector(
+        `div[data-id="${id}"]`
+      ).innerHTML = `${backEndPlayer.username}: ${backEndPlayer.score}`
 
-        const lastBackendInput = playerInputs.findIndex(input=>{
-          return backEndPlayer.sequenceNumber === input.sequenceNumber
-        })
-        if(lastBackendInput>-1){
-          playerInputs.slice(0,lastBackendInput+1)
-        }
-        playerInputs.forEach((input)=>{
-          frontEndPlayers[id].x+=input.dx
-          frontEndPlayers[id].y+=input.dy
-        })
+      document
+        .querySelector(`div[data-id="${id}"]`)
+        .setAttribute('data-score', backEndPlayer.score)
+
+      // sorts the players divs
+      const parentDiv = document.querySelector('#playerLabels')
+      const childDivs = Array.from(parentDiv.querySelectorAll('div'))
+
+      childDivs.sort((a, b) => {
+        const scoreA = Number(a.getAttribute('data-score'))
+        const scoreB = Number(b.getAttribute('data-score'))
+
+        return scoreB - scoreA
+      })
+
+      // removes old elements
+      childDivs.forEach((div) => {
+        parentDiv.removeChild(div)
+      })
+
+      // adds sorted elements
+      childDivs.forEach((div) => {
+        parentDiv.appendChild(div)
+      })
+      if(id === socket.id){
+      frontEndPlayers[id].x=backEndPlayer.x,
+      frontEndPlayers[id].y=backEndPlayer.y
+
+      const lastBackendInput = playerInputs.findIndex(input=>{
+        return backEndPlayer.sequenceNumber === input.sequenceNumber
+      })
+      if(lastBackendInput>-1){
+        playerInputs.slice(0,lastBackendInput+1)
+      }
+      playerInputs.forEach((input)=>{
+        frontEndPlayers[id].x+=input.dx
+        frontEndPlayers[id].y+=input.dy
+      })
       }else{
         frontEndPlayers[id].x=backEndPlayer.x,
         frontEndPlayers[id].y=backEndPlayer.y
@@ -82,15 +106,22 @@ socket.on("updatePlayers",(backEndPlayers)=>{
       }
       }
     }
+    // removeing frontend players
     for (const id in frontEndPlayers){
       if(!backEndPlayers[id]){
+        const divToDelete = document.querySelector(`div[data-id="${id}"]`)
+        divToDelete.parentNode.removeChild(divToDelete)
+
+        if(id === socket.id){
+          document.querySelector('#usernameForm').style.display = 'block'
+        }
         delete frontEndPlayers[id]
       }
     }
 })
 
 let animationId
-const SPEED = 10;
+const SPEED = 5;
 const playerInputs =[]
 let sequenceNumber =0
 function animate() {
@@ -195,4 +226,15 @@ window.addEventListener('keyup',(event) =>{
       break
 
   }
+})
+document.querySelector('#usernameForm').addEventListener('submit',(event)=>{
+  event.preventDefault();
+  document.querySelector('#usernameForm').style.display='none'
+  socket.emit('initGame',
+  {
+    username:document.querySelector('#usernameInput').value,
+    width: canvas.width,
+    height: canvas.height,
+    devicePixelRatio
+  })
 })
