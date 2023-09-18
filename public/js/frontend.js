@@ -121,9 +121,6 @@ socket.on("updatePlayers",(backEndPlayers)=>{
 })
 
 let animationId
-const SPEED = 5;
-const playerInputs =[]
-let sequenceNumber =0
 function animate() {
   animationId = requestAnimationFrame(animate)
   c.fillStyle = 'rgba(0, 0, 0, 0.1)'
