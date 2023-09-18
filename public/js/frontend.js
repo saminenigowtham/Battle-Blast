@@ -1,18 +1,22 @@
 const canvas = document.querySelector('canvas')
 const c = canvas.getContext('2d')
+
 const socket = io()
+
 const scoreEl = document.querySelector('#scoreEl')
+
 const devicePixelRatio = window.devicePixelRatio || 1
-canvas.width = innerWidth *devicePixelRatio
-canvas.height = innerHeight *devicePixelRatio
+
+canvas.width = 1024 * devicePixelRatio
+canvas.height = 576 * devicePixelRatio
+
+c.scale(devicePixelRatio, devicePixelRatio)
 
 const x = canvas.width / 2
 const y = canvas.height / 2
 
-// const player = new Player(x, y, 10, 'white')
-const frontEndPlayers ={}
+const frontEndPlayers = {}
 const frontEndProjectiles = {}
-
 
 socket.on('updateProjectiles', (backEndProjectiles) => {
   for (const id in backEndProjectiles) {
@@ -38,17 +42,21 @@ socket.on('updateProjectiles', (backEndProjectiles) => {
     }
   }
 })
-socket.on("updatePlayers",(backEndPlayers)=>{
-    for (const id in backEndPlayers){
-      const backEndPlayer = backEndPlayers[id]
-      if(!frontEndPlayers[id]){
-        frontEndPlayers[id]=new Player({
-          x:backEndPlayer.x,
-          y:backEndPlayer.y,
-          radius:10,
-          color:backEndPlayer.color
-        })
-         document.querySelector(
+
+socket.on('updatePlayers', (backEndPlayers) => {
+  for (const id in backEndPlayers) {
+    const backEndPlayer = backEndPlayers[id]
+
+    if (!frontEndPlayers[id]) {
+      frontEndPlayers[id] = new Player({
+        x: backEndPlayer.x,
+        y: backEndPlayer.y,
+        radius: 10,
+        color: backEndPlayer.color,
+        username: backEndPlayer.username
+      })
+
+      document.querySelector(
         '#playerLabels'
       ).innerHTML += `<div data-id="${id}" data-score="${backEndPlayer.score}">${backEndPlayer.username}: ${backEndPlayer.score}</div>`
     } else {
@@ -80,23 +88,26 @@ socket.on("updatePlayers",(backEndPlayers)=>{
       childDivs.forEach((div) => {
         parentDiv.appendChild(div)
       })
-      if(id === socket.id){
-      frontEndPlayers[id].x=backEndPlayer.x,
-      frontEndPlayers[id].y=backEndPlayer.y
 
-      const lastBackendInput = playerInputs.findIndex(input=>{
-        return backEndPlayer.sequenceNumber === input.sequenceNumber
-      })
-      if(lastBackendInput>-1){
-        playerInputs.slice(0,lastBackendInput+1)
-      }
-      playerInputs.forEach((input)=>{
-        frontEndPlayers[id].x+=input.dx
-        frontEndPlayers[id].y+=input.dy
-      })
-      }else{
-        frontEndPlayers[id].x=backEndPlayer.x,
-        frontEndPlayers[id].y=backEndPlayer.y
+      if (id === socket.id) {
+        // if a player already exists
+        frontEndPlayers[id].x = backEndPlayer.x
+        frontEndPlayers[id].y = backEndPlayer.y
+
+        const lastBackendInputIndex = playerInputs.findIndex((input) => {
+          return backEndPlayer.sequenceNumber === input.sequenceNumber
+        })
+
+        if (lastBackendInputIndex > -1)
+          playerInputs.splice(0, lastBackendInputIndex + 1)
+
+        playerInputs.forEach((input) => {
+          frontEndPlayers[id].x += input.dx
+          frontEndPlayers[id].y += input.dy
+        })
+      } else {
+        // for all other players
+
         gsap.to(frontEndPlayers[id], {
           x: backEndPlayer.x,
           y: backEndPlayer.y,
@@ -104,57 +115,63 @@ socket.on("updatePlayers",(backEndPlayers)=>{
           ease: 'linear'
         })
       }
-      }
     }
-    // removeing frontend players
-    for (const id in frontEndPlayers){
-      if(!backEndPlayers[id]){
-        const divToDelete = document.querySelector(`div[data-id="${id}"]`)
-        divToDelete.parentNode.removeChild(divToDelete)
+  }
 
-        if(id === socket.id){
-          document.querySelector('#usernameForm').style.display = 'block'
-        }
-        delete frontEndPlayers[id]
+  // this is where we delete frontend players
+  for (const id in frontEndPlayers) {
+    if (!backEndPlayers[id]) {
+      const divToDelete = document.querySelector(`div[data-id="${id}"]`)
+      divToDelete.parentNode.removeChild(divToDelete)
+
+      if (id === socket.id) {
+        document.querySelector('#usernameForm').style.display = 'block'
       }
+
+      delete frontEndPlayers[id]
     }
+  }
 })
 
 let animationId
 function animate() {
   animationId = requestAnimationFrame(animate)
-  c.fillStyle = 'rgba(0, 0, 0, 0.1)'
-  c.fillRect(0, 0, canvas.width, canvas.height)
-  for(const id in frontEndPlayers){
+  // c.fillStyle = 'rgba(0, 0, 0, 0.1)'
+  c.clearRect(0, 0, canvas.width, canvas.height)
+
+  for (const id in frontEndPlayers) {
     const frontEndPlayer = frontEndPlayers[id]
     frontEndPlayer.draw()
   }
- for (const id in frontEndProjectiles) {
+
+  for (const id in frontEndProjectiles) {
     const frontEndProjectile = frontEndProjectiles[id]
     frontEndProjectile.draw()
   }
-  // for(let i=frontEndProjectiles.length-1;i>=0;i--){
-  //   const frontEndProjectile = frontEndProjectiles[i];
-  //   frontEndProjectile.update()
-  // }
+
 
 }
 
 animate()
-const keys ={
- w:{
-  pressed: false
- },
- a:{
-  pressed: false
- },
- s:{
-  pressed: false
- },
- d:{
-  pressed: false
- }
+
+const keys = {
+  w: {
+    pressed: false
+  },
+  a: {
+    pressed: false
+  },
+  s: {
+    pressed: false
+  },
+  d: {
+    pressed: false
+  }
 }
+
+const SPEED = 10
+const playerInputs = []
+let sequenceNumber = 0
 setInterval(() => {
   if (keys.w.pressed) {
     sequenceNumber++
@@ -183,22 +200,26 @@ setInterval(() => {
     frontEndPlayers[socket.id].x += SPEED
     socket.emit('keydown', { keycode: 'KeyD', sequenceNumber })
   }
-  
-}, 15);
-window.addEventListener('keydown',(event)=>{
+}, 15)
+
+window.addEventListener('keydown', (event) => {
   if (!frontEndPlayers[socket.id]) return
-  switch(event.code){
+
+  switch (event.code) {
     case 'KeyW':
       keys.w.pressed = true
       break
+
     case 'KeyA':
       // socket.emit('keydown', 'KeyA')
       keys.a.pressed = true
       break
+
     case 'KeyS':
       // socket.emit('keydown', 'KeyS')
       keys.s.pressed = true
       break
+
     case 'KeyD':
       // socket.emit('keydown', 'KeyD')
       keys.d.pressed = true
@@ -206,32 +227,37 @@ window.addEventListener('keydown',(event)=>{
 
   }
 })
-window.addEventListener('keyup',(event) =>{
+
+window.addEventListener('keyup', (event) => {
   if (!frontEndPlayers[socket.id]) return
-  switch(event.code){
+
+  switch (event.code) {
     case 'KeyW':
       keys.w.pressed = false
       break
+
     case 'KeyA':
       keys.a.pressed = false
       break
+
     case 'KeyS':
       keys.s.pressed = false
       break
+
     case 'KeyD':
       keys.d.pressed = false
       break
 
   }
 })
-document.querySelector('#usernameForm').addEventListener('submit',(event)=>{
-  event.preventDefault();
-  document.querySelector('#usernameForm').style.display='none'
-  socket.emit('initGame',
-  {
-    username:document.querySelector('#usernameInput').value,
+
+document.querySelector('#usernameForm').addEventListener('submit', (event) => {
+  event.preventDefault()
+  document.querySelector('#usernameForm').style.display = 'none'
+  socket.emit('initGame', {
     width: canvas.width,
     height: canvas.height,
-    devicePixelRatio
+    devicePixelRatio,
+    username: document.querySelector('#usernameInput').value
   })
 })
