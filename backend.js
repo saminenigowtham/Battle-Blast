@@ -17,7 +17,7 @@ app.get('/', (req, res) => {
 
 const backEndPlayers = {}
 const backEndProjectiles = {}
-const SPEED = 5;
+const SPEED = 10;
 const RADIUS = 10
 const PROJECTILE_RADIUS = 5
 let projectileId = 0
@@ -50,8 +50,8 @@ io.on('connection', (socket) => {
   socket.on('initGame', ({ username, width, height }) => {
   console.log(username);
   backEndPlayers[socket.id] = {
-      x: 1024 * Math.random(),
-      y: 576 * Math.random(),
+      x: 1520 * Math.random(), //1024
+      y: 840 * Math.random(), //576
       color:`hsl(${360*Math.random()},100%,50%)`,
       sequenceNumber:0,
       score:0,
@@ -101,11 +101,11 @@ io.on('connection', (socket) => {
 
     if (playerSides.left < 0) backEndPlayers[socket.id].x = backEndPlayer.radius
 
-    if (playerSides.right > 1024) backEndPlayers[socket.id].x = 1024 - backEndPlayer.radius
+    if (playerSides.right > 1520) backEndPlayers[socket.id].x = 1520 - backEndPlayer.radius
 
     if (playerSides.top < 0) backEndPlayers[socket.id].y = backEndPlayer.radius
 
-    if (playerSides.bottom > 576) backEndPlayers[socket.id].y = 576 - backEndPlayer.radius
+    if (playerSides.bottom > 840) backEndPlayers[socket.id].y = 840 - backEndPlayer.radius
   })
   
 })
